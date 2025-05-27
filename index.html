@@ -2,7 +2,10 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <title>Portfolio Site</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -17,6 +20,8 @@
             box-sizing: border-box;
             font-family: 'Benzin', sans-serif;
             color: white;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
         }
 
         html, body {
@@ -95,6 +100,7 @@
             z-index: -2;
             pointer-events: none;
             object-fit: cover;
+            max-width: none;
         }
 
         .video-overlay {
@@ -383,9 +389,24 @@
             .ui-wrapper {
                 width: 90vw;
                 height: auto;
-                max-height: none;
-                padding: 20px;
-                margin-top: 20px;
+                min-height: 400px;
+                padding: 15px;
+                margin: 10px auto;
+                border-radius: 16px;
+                max-height: 80vh;
+            }
+
+            .ui-content {
+                padding: 12px;
+            }
+
+            .avatar-container {
+                margin-bottom: 15px;
+            }
+
+            .avatar-container img {
+                width: 80px;
+                height: 80px;
             }
 
             .top-bar {
@@ -395,10 +416,14 @@
                 padding: 12px 16px;
             }
 
+            #logo {
+                font-size: 1.3rem;
+            }
+
             .menu {
                 flex-wrap: wrap;
                 justify-content: center;
-                gap: 10px;
+                gap: 8px;
             }
 
             .menu-btn {
@@ -411,19 +436,115 @@
                 padding: 6px 12px;
             }
 
+            .info-text {
+                font-size: 0.9rem;
+                margin: 8px 0;
+            }
+
+            #section-title {
+                font-size: 1.5rem;
+                margin-bottom: 16px;
+            }
+
+            #entry-screen {
+                font-size: 2rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .ui-wrapper {
+                width: 85vw;
+                height: auto;
+                min-height: 300px;
+                max-height: 70vh;
+                margin: 10px auto;
+                padding: 10px;
+                border-radius: 12px;
+            }
+
+            .ui-content {
+                padding: 10px;
+            }
+
+            .avatar-container {
+                margin-bottom: 12px;
+            }
+
             .avatar-container img {
-                width: 100px;
-                height: 100px;
+                width: 60px;
+                height: 60px;
+            }
+
+            .info-text {
+                font-size: 0.9rem;
+                margin: 8px 0;
             }
 
             .socials {
-                gap: 16px;
+                gap: 12px;
+                margin-top: 12px;
             }
 
             .socials a {
+                width: 32px;
+                height: 32px;
+                font-size: 1rem;
+            }
+
+            .top-bar {
+                padding: 8px;
+            }
+
+            #logo {
                 font-size: 1.2rem;
-                width: 40px;
-                height: 40px;
+            }
+
+            .menu-btn {
+                font-size: 0.8rem;
+                padding: 5px 10px;
+            }
+        }
+
+        @media (max-width: 320px) {
+            .ui-wrapper {
+                width: 90vw;
+                min-height: 250px;
+                padding: 8px;
+            }
+
+            .ui-content {
+                padding: 8px;
+            }
+
+            .avatar-container img {
+                width: 50px;
+                height: 50px;
+            }
+
+            .socials a {
+                width: 28px;
+                height: 28px;
+                font-size: 0.9rem;
+            }
+        }
+
+        @media (orientation: landscape) and (max-height: 600px) {
+            .ui-wrapper {
+                height: auto;
+                min-height: 80vh;
+            }
+
+            .avatar-container {
+                margin-bottom: 12px;
+            }
+
+            .avatar-container img {
+                width: 70px;
+                height: 70px;
+            }
+
+            .socials {
+                margin-top: 12px;
             }
         }
     </style>
@@ -503,9 +624,25 @@
             const video = document.getElementById('background-video');
             let isMuted = true;
 
-            entryScreen.addEventListener('click', () => {
-                video.muted = false;
-                video.play();
+            // Handle both click and touch events
+            const handleEntry = () => {
+                // Check if it's iOS
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+                
+                if (isIOS) {
+                    // For iOS, we need to handle video differently
+                    video.play().then(() => {
+                        video.muted = false;
+                    }).catch(error => {
+                        console.log("iOS video autoplay error:", error);
+                        // Keep video muted on iOS if autoplay fails
+                        video.play();
+                    });
+                } else {
+                    video.muted = false;
+                    video.play();
+                }
+
                 isMuted = false;
                 soundToggle.innerHTML = '<i class="fas fa-volume-up"></i>';
                 entryScreen.style.opacity = 0;
@@ -513,10 +650,23 @@
                     entryScreen.remove();
                     mainInterface.classList.remove('hidden');
                 }, 1000);
+            };
+
+            // Add both click and touch event listeners
+            entryScreen.addEventListener('click', handleEntry);
+            entryScreen.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                handleEntry();
             });
 
+            // Prevent double-tap zoom on mobile
+            document.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                e.target.click();
+            }, { passive: false });
+
             menuButtons.forEach(btn => {
-                btn.addEventListener('click', () => {
+                const handleMenuClick = () => {
                     document.querySelector('.menu-btn.active').classList.remove('active');
                     btn.classList.add('active');
                     
@@ -535,10 +685,16 @@
                             nextSection.style.opacity = '1';
                         }, 300);
                     }
+                };
+
+                btn.addEventListener('click', handleMenuClick);
+                btn.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    handleMenuClick();
                 });
             });
 
-            soundToggle.addEventListener('click', () => {
+            const handleSoundToggle = () => {
                 if (isMuted) {
                     video.muted = false;
                     video.style.filter = 'none';
@@ -549,7 +705,26 @@
                     soundToggle.innerHTML = '<i class="fas fa-volume-mute"></i>';
                 }
                 isMuted = !isMuted;
+            };
+
+            soundToggle.addEventListener('click', handleSoundToggle);
+            soundToggle.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                handleSoundToggle();
             });
+
+            // Handle video loading errors
+            video.addEventListener('error', function(e) {
+                console.error('Error loading video:', e);
+                // Add a fallback background color
+                document.body.style.backgroundColor = '#000';
+            });
+
+            // Optimize video loading for mobile
+            if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+                video.setAttribute('playsinline', '');
+                video.setAttribute('preload', 'metadata');
+            }
         });
     </script>
 </body>
