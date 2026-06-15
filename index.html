@@ -3,14 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Kaban4ik Studios — создаём уникальные Minecraft серверы, плагины и игровые проекты. Строим миры, сообщества и незабываемые приключения.">
     <title>Kaban4ik Studios | Portfolio</title>
     
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@600;700&display=swap" rel="stylesheet">
     
     <!-- Font Awesome 6 -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
@@ -1162,8 +1164,8 @@
     <!-- ============================================
          VIDEO BACKGROUND
          ============================================ -->
-    <div class="video-background">
-        <video id="bgVideo" autoplay loop playsinline muted onerror="console.log('Video failed to load');">
+    <div class="video-background" aria-hidden="true">
+        <video id="bgVideo" autoplay loop playsinline muted>
             <source src="video.mp4" type="video/mp4">
             Your browser does not support the video tag.
         </video>
@@ -1221,7 +1223,7 @@
                     <section class="section active" id="info-section">
                         <div class="info-section">
                             <div class="avatar-container">
-                                <img src="profile.jpg" alt="Kaban4ik Studios" class="avatar" onerror="if(!this.dataset.fallback){this.dataset.fallback='true';this.style.display='none';this.parentElement.insertAdjacentHTML('beforeend','<div class=\'avatar-fallback\'>KS</div>');}">
+                                <img src="profile.jpg" alt="Kaban4ik Studios" class="avatar" id="avatarImg">
                             </div>
                             
                             <h1 class="studio-name">
@@ -1314,6 +1316,8 @@
         const cursorDot = document.querySelector('.custom-cursor-dot');
         const canvas = document.getElementById('particles-canvas');
         const ctx = canvas.getContext('2d');
+        const glassCard = document.querySelector('.glass-card');
+        const avatarImg = document.getElementById('avatarImg');
 
         // ============================================
         // INITIAL VIDEO SETUP (50% volume by default)
@@ -1321,6 +1325,19 @@
         bgVideo.volume = 0.5;
         soundToggle.classList.remove('muted');
         soundToggle.innerHTML = '<i class="fas fa-volume-up"></i>';
+
+        // Error handlers (moved from inline onerror for CSP compatibility)
+        bgVideo.addEventListener('error', () => {
+            console.log('Video failed to load');
+        });
+
+        avatarImg.addEventListener('error', () => {
+            if (!avatarImg.dataset.fallback) {
+                avatarImg.dataset.fallback = 'true';
+                avatarImg.style.display = 'none';
+                avatarImg.parentElement.insertAdjacentHTML('beforeend', '<div class="avatar-fallback">KS</div>');
+            }
+        }, { once: true });
 
         // ============================================
         // ENTRY SCREEN LOGIC
@@ -1414,6 +1431,11 @@
         });
 
         // ============================================
+        // TOUCH DEVICE DETECTION
+        // ============================================
+        const isCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
+
+        // ============================================
         // CUSTOM CURSOR
         // ============================================
         let mouseX = 0, mouseY = 0;
@@ -1423,6 +1445,14 @@
         document.addEventListener('mousemove', (e) => {
             mouseX = e.clientX;
             mouseY = e.clientY;
+
+            // Parallax effect for glass card
+            const moveX = (e.clientX - window.innerWidth / 2) * 0.01;
+            const moveY = (e.clientY - window.innerHeight / 2) * 0.01;
+
+            if (glassCard) {
+                glassCard.style.transform = `translate(${moveX}px, ${moveY}px)`;
+            }
         });
 
         // Smooth cursor animation
@@ -1441,7 +1471,9 @@
             
             requestAnimationFrame(animateCursor);
         }
-        animateCursor();
+        if (!isCoarsePointer) {
+            animateCursor();
+        }
 
         // Cursor hover effects
         const hoverElements = document.querySelectorAll('[data-cursor-hover], a, button, .project-card, .server-card');
@@ -1528,7 +1560,13 @@
         function initParticles() {
             resizeCanvas();
             particles = [];
-            
+
+            // Skip particle system on touch devices to save CPU/battery
+            if (isCoarsePointer) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                return;
+            }
+
             // Create particles
             const particleCount = Math.min(80, Math.floor((canvas.width * canvas.height) / 15000));
             for (let i = 0; i < particleCount; i++) {
@@ -1544,14 +1582,16 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
             // Update and draw particles
-            particles.forEach(particle => {
-                particle.update();
-                particle.draw();
-            });
+            for (let i = 0; i < particles.length; i++) {
+                particles[i].update();
+                particles[i].draw();
+            }
             
             // Draw connections
-            particles.forEach((p1, i) => {
-                particles.slice(i + 1).forEach(p2 => {
+            for (let i = 0; i < particles.length; i++) {
+                const p1 = particles[i];
+                for (let j = i + 1; j < particles.length; j++) {
+                    const p2 = particles[j];
                     const dx = p1.x - p2.x;
                     const dy = p1.y - p2.y;
                     const distance = Math.sqrt(dx * dx + dy * dy);
@@ -1564,55 +1604,41 @@
                         ctx.lineWidth = 0.5;
                         ctx.stroke();
                     }
-                });
-            });
+                }
+            }
             
             animationId = requestAnimationFrame(animateParticles);
         }
 
-        // Handle resize
+        // Handle resize (debounced to avoid excessive recalculation while dragging)
+        let resizeTimeout;
         window.addEventListener('resize', () => {
-            resizeCanvas();
-            initParticles();
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                resizeCanvas();
+                initParticles();
+            }, 150);
         });
 
-        // ============================================
-        // PARALLAX EFFECT
-        // ============================================
-        document.addEventListener('mousemove', (e) => {
-            const moveX = (e.clientX - window.innerWidth / 2) * 0.01;
-            const moveY = (e.clientY - window.innerHeight / 2) * 0.01;
-            
-            const glassCard = document.querySelector('.glass-card');
-            if (glassCard) {
-                glassCard.style.transform = `translate(${moveX}px, ${moveY}px)`;
-            }
-        });
-
-        // ============================================
-        // INTERSECTION OBSERVER FOR ANIMATIONS
-        // ============================================
-        const observerOptions = {
-            threshold: 0.1,
-            rootMargin: '0px 0px -50px 0px'
-        };
-
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.style.opacity = '1';
-                    entry.target.style.transform = 'translateY(0)';
-                }
-            });
-        }, observerOptions);
-
-        // Observe project and server cards
-        document.querySelectorAll('.project-card, .server-card').forEach(card => {
-            card.style.opacity = '0';
-            card.style.transform = 'translateY(20px)';
-            card.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
-            observer.observe(card);
-        });
+        // Note: IntersectionObserver for .project-card / .server-card animations
+        // was removed — sections are currently empty ("Coming soon"). Re-add
+        // when real cards are added to projects-grid / servers-grid:
+        //
+        // const observer = new IntersectionObserver((entries) => {
+        //     entries.forEach(entry => {
+        //         if (entry.isIntersecting) {
+        //             entry.target.style.opacity = '1';
+        //             entry.target.style.transform = 'translateY(0)';
+        //         }
+        //     });
+        // }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+        //
+        // document.querySelectorAll('.project-card, .server-card').forEach(card => {
+        //     card.style.opacity = '0';
+        //     card.style.transform = 'translateY(20px)';
+        //     card.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+        //     observer.observe(card);
+        // });
 
         // ============================================
         // KEYBOARD NAVIGATION
